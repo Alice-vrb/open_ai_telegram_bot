@@ -30,6 +30,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'talk': 'Діалог з відомою особистістю',
         }
     )
+    context.user_data.pop("conversation_state", None)
+    context.user_data.pop("selected_personality", None)
 
 
 async def random(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -54,6 +56,8 @@ async def random(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=update.effective_chat.id,
             message_id=message_to_delete.message_id
         )
+    context.user_data.pop("conversation_state", None)
+    context.user_data.pop("selected_personality", None)
 
 
 async def random_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -130,21 +134,17 @@ async def talk(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'start': "Закінчити",
     }
     await send_text_buttons(update, context, "Оберіть особистість для спілкування ...", personalities)
+    context.user_data["conversation_state"] = "talk"
 
 
 async def talk_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     data = query.data
-    if data == "start":
-        context.user_data.pop("conversation_state", None)
-        context.user_data.pop("selected_personality", None)
-        await start(update, context)
-        return
     if data.startswith("talk_"):
         context.user_data.clear()
-        context.user_data["selected_personality"] = data
         context.user_data["conversation_state"] = "talk"
+        context.user_data["selected_personality"] = data
         prompt = load_prompt(data)
         chatgpt_service.set_prompt(prompt)
         personality_name = data.replace("talk_", "").replace("_", " ").title()
