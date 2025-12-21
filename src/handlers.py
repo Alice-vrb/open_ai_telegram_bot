@@ -1,4 +1,5 @@
 import logging
+from logging.handlers import RotatingFileHandler
 from random import choice
 
 from telegram import Update
@@ -12,7 +13,15 @@ chatgpt_service = ChatGPTService(CHATGPT_TOKEN)
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    level=logging.INFO,
+    handlers=[
+        RotatingFileHandler(
+            'app_logging.log',
+            maxBytes=5*1024*1024,
+            backupCount=2
+        ),
+        logging.StreamHandler()
+    ]
 )
 logger = logging.getLogger(__name__)
 
