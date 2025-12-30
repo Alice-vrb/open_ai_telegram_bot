@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.clear()
     await send_image(update, context, "start")
     await send_text(update, context, load_message("start"))
     await show_main_menu(
@@ -40,11 +41,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'story': 'Написати історію за ключовими словами'
         }
     )
-    context.user_data.pop("conversation_state", None)
-    context.user_data.pop("selected_personality", None)
-
 
 async def random(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.clear()
     await send_image(update, context, "random")
     message_to_delete = await send_text(update, context, "Шукаю випадковий факт ...")
     try:
@@ -66,18 +65,6 @@ async def random(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=update.effective_chat.id,
             message_id=message_to_delete.message_id
         )
-    context.user_data.pop("conversation_state", None)
-    context.user_data.pop("selected_personality", None)
-
-
-async def random_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    data = query.data
-    if data == 'random':
-        await random(update, context)
-    elif data == 'start':
-        await start(update, context)
 
 
 async def gpt(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -276,10 +263,19 @@ async def story_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     data = query.data
-    if data == 'story':
-        await story(update, context)
-        return
-    elif data == 'random_vibe':
+    if data == 'random_vibe':
         data = choice(['dark','light','funny','mystic'])
     context.user_data["story_vibe"] = data
     await send_text(update, context, "Введіть три ключові слова для оповідання:")
+
+
+async def stateless_command_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    if data == 'start':
+        await start(update, context)
+    elif data == 'random':
+        await random(update, context)
+    elif data == 'story':
+        await story(update, context)
