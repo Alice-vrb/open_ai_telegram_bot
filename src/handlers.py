@@ -37,6 +37,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'random': 'Дізнатися випадковий факт',
             'gpt': 'Запитати ChatGPT',
             'talk': 'Діалог з відомою особистістю',
+            'story': 'Написати історію за ключовими словами'
         }
     )
     context.user_data.pop("conversation_state", None)
@@ -126,6 +127,32 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 chat_id=update.effective_chat.id,
                 message_id=waiting_message.message_id
             )
+    if conversation_state == "story":
+        story_vibe = context.user_data.get("story_vibe")
+        if not story_vibe:
+            await send_text(update, context, 'Спочатку оберіть атмосферу для історії!')
+            return
+        waiting_message = await send_text(update, context, "Пишу оповідку...")
+        try:
+            response = await chatgpt_service.send_question(
+                load_prompt("story"),
+                f'Атмосфера: {story_vibe}; слова: {message_text}'
+            )
+            buttons = {
+                "story": "Написати ще одну історію",
+                "start": "Закінчити"
+            }
+            await send_text_buttons(update, context, response, buttons)
+        except Exception as e:
+            logger.error(f"Помилка при отриманні відповіді від ChatGPT: {e}")
+            await send_text(update, context, "Виникла помилка при написанні тексту!")
+        finally:
+            await context.bot.delete_message(
+                chat_id=update.effective_chat.id,
+                message_id=waiting_message.message_id
+            )
+            context.user_data.pop("conversation_state", None)
+            context.user_data.pop("story_vibe", None)
     if not conversation_state:
         intent_recognized = await inter_random_input(update, context, message_text)
         if not intent_recognized:
@@ -197,6 +224,14 @@ async def inter_random_input(update: Update, context: ContextTypes.DEFAULT_TYPE,
         )
         await talk(update, context)
         return True
+    elif any(keyword in message_text_lower for keyword in ['писат', 'слов', 'історі', 'оповід', 'story']):
+        await send_text(
+            update,
+            context,
+            text="Схоже, вас цікавлять історії! Давайте згенеруєму одну..."
+        )
+        await story(update, context)
+        return True
     return False
 
 
@@ -220,3 +255,31 @@ async def show_funny_response(update: Update, context: ContextTypes.DEFAULT_TYPE
     """
     full_message = f"{random_response}\n{available_commands}"
     await update.message.reply_text(full_message)
+
+
+async def story(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.clear()
+    await send_image(update, context, "story")
+    vibes = {
+        'dark': '🌙 Темна',
+        'light': '✨ Світла',
+        'funny': '😂 Кумедна',
+        'mystic': '🔮 Містична',
+        'random_vibe': '🎲 Випадкова',
+        'start': "Закінчити"
+    }
+    await send_text_buttons(update, context, "Оберіть атмосферу (вайб) для історії:", vibes)
+    context.user_data["conversation_state"] = "story"
+
+
+async def story_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    if data == 'story':
+        await story(update, context)
+        return
+    elif data == 'random_vibe':
+        data = choice(['dark','light','funny','mystic'])
+    context.user_data["story_vibe"] = data
+    await send_text(update, context, "Введіть три ключові слова для оповідання:")
