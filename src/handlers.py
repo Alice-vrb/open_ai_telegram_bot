@@ -7,7 +7,8 @@ from telegram.ext import ContextTypes
 
 from config import CHATGPT_TOKEN
 from gpt import ChatGPTService
-from utils import (send_image, send_text, load_message, show_main_menu, load_prompt, send_text_buttons)
+from utils import (send_image, send_text, load_message, show_main_menu, load_prompt, send_text_buttons,
+                   download_voice_message, convert_ogg_to_wav, cleanup_files, recognize_speech, text_to_speech)
 
 chatgpt_service = ChatGPTService(CHATGPT_TOKEN)
 
@@ -38,7 +39,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'random': 'Дізнатися випадковий факт',
             'gpt': 'Запитати ChatGPT',
             'talk': 'Діалог з відомою особистістю',
-            'story': 'Написати історію за ключовими словами'
+            'story': 'Написати історію за ключовими словами',
+            'voice': 'Голосовий чат з ChatGPT'
         }
     )
 
@@ -218,6 +220,13 @@ async def inter_random_input(update: Update, context: ContextTypes.DEFAULT_TYPE,
             text="Схоже, вас цікавлять історії! Давайте згенеруєму одну..."
         )
         await story(update, context)
+    elif any(keyword in message_text_lower for keyword in ['голос', 'аудіо', 'voice']):
+        await send_text(
+            update,
+            context,
+            text="Схоже, ви хочете задати питання голосом! Переходимо до режиму голосового чату з ChatGPT..."
+        )
+        await voice(update, context)
         return True
     return False
 
@@ -279,3 +288,61 @@ async def stateless_command_button(update: Update, context: ContextTypes.DEFAULT
         await random(update, context)
     elif data == 'story':
         await story(update, context)
+
+
+async def voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.clear()
+    await send_image(update, context, "voice")
+    await send_text(update, context, "Надішліть голосове повідомлення ...")
+    chatgpt_service.set_prompt(load_prompt("voice"))
+    context.user_data["conversation_state"] = "voice"
+
+
+async def voice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    conversation_state = context.user_data.get("conversation_state")
+    if conversation_state == 'voice':
+        ogg_path = None
+        wav_path = None
+        mp3_path = None
+        waiting_message = await send_text(update, context, "Обробляю голосове повідомлення...")
+        try:
+            ogg_path = await download_voice_message(update.message.voice)
+            if not ogg_path:
+                await send_text(update, context, "Помилка завантаження голосового повідомлення!")
+                return
+            wav_path = convert_ogg_to_wav(ogg_path)
+            if not wav_path:
+                await send_text(update, context, "Помилка конвертації голосового повідомлення!")
+                return
+            text = recognize_speech(wav_path)
+            if not text:
+                await send_text(update, context, "Не вдалося розпізнати мову. Спробуйте ще раз чіткіше.")
+                return
+            response = await chatgpt_service.add_message(text)
+            mp3_path = text_to_speech(response, output_file=f"response_{update.message.voice.file_id}.mp3",
+                                      language='uk')
+            if not mp3_path:
+                await send_text(update, context, "Помилка створення голосової відповіді!")
+                return
+            with open(mp3_path, 'rb') as audio:
+                await context.bot.send_voice(
+                    chat_id=update.effective_chat.id,
+                    voice=audio
+                )
+        except Exception as e:
+            logger.error(f"Помилка при обробці голосового повідомлення: {e}")
+            await send_text(update, context, "Виникла помилка при обробці вашого голосового повідомлення. Будь ласка, повторіть спробу.")
+        finally:
+            cleanup_files(ogg_path, wav_path, mp3_path)
+            await context.bot.delete_message(
+                chat_id=update.effective_chat.id,
+                message_id=waiting_message.message_id
+            )
+    elif not conversation_state:
+        await send_text(
+            update,
+            context,
+            text="Схоже, ви хочете задати питання голосом! Переходимо до режиму голосового спілкування з ChatGPT..."
+        )
+        await voice(update, context)
+        return
