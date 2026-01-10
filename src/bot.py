@@ -21,7 +21,7 @@ app.add_handler(
         pattern='^(talk_linus_torvalds|talk_guido_van_rossum|talk_mark_zuckerberg)$'
     )
 )
-app.add_handler(CallbackQueryHandler(story_button, pattern='^(dark|light|funny|mystic|random_vibe)$'))
+app.add_handler(CallbackQueryHandler(story_button, pattern='^(темна|світла|кумедна|містична|random_vibe)$'))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
 app.add_handler(MessageHandler(filters.VOICE, voice_handler))
 

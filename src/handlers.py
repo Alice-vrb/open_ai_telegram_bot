@@ -131,7 +131,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "story": "Написати ще одну історію",
                 "start": "Закінчити"
             }
-            await send_text_buttons(update, context, response, buttons)
+            await send_text_buttons(update, context, f"Обрана атмосфера: {story_vibe}\n\n{response}", buttons)
         except Exception as e:
             logger.error(f"Помилка при отриманні відповіді від ChatGPT: {e}")
             await send_text(update, context, "Виникла помилка при написанні тексту!")
@@ -257,10 +257,10 @@ async def story(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     await send_image(update, context, "story")
     vibes = {
-        'dark': '🌙 Темна',
-        'light': '✨ Світла',
-        'funny': '😂 Кумедна',
-        'mystic': '🔮 Містична',
+        'темна': '🌙 Темна',
+        'світла': '✨ Світла',
+        'кумедна': '😂 Кумедна',
+        'містична': '🔮 Містична',
         'random_vibe': '🎲 Випадкова',
         'start': "Закінчити"
     }
@@ -273,7 +273,7 @@ async def story_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     data = query.data
     if data == 'random_vibe':
-        data = choice(['dark','light','funny','mystic'])
+        data = choice(['темна','світла','кумедна','містична'])
     context.user_data["story_vibe"] = data
     await send_text(update, context, "Введіть три ключові слова для оповідання:")
 
