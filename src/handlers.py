@@ -142,6 +142,13 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             context.user_data.pop("conversation_state", None)
             context.user_data.pop("story_vibe", None)
+    if conversation_state == "voice":
+        text = """
+        Будь ласка, надішліть голосове повідомлення.\n
+    /gpt, якщо хочете задати питання текстом
+    /start - повернутися в головне меню
+                """
+        await send_text(update, context, text)
     if not conversation_state:
         intent_recognized = await inter_random_input(update, context, message_text)
         if not intent_recognized:
@@ -338,7 +345,7 @@ async def voice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 chat_id=update.effective_chat.id,
                 message_id=waiting_message.message_id
             )
-    elif not conversation_state:
+    else:
         await send_text(
             update,
             context,
